@@ -1,0 +1,55 @@
+name: E2E tests
+on:
+    workflow_dispatch:
+        inputs:
+            wp_version:
+                description: Specific WordPress version to use instead the latest.
+                type: string
+                required: false
+    schedule:
+        - cron: '0 0 * * 0'
+jobs:
+    e2e-tests:
+        strategy:
+            fail-fast: false
+            matrix:
+                wp_plugin: ['comment-saver', 'wp-guest-bar']
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup WordPress environment
+              run: |
+                  [ -d "tests/${{ matrix.wp_plugin }}/mu-plugins" ] && cp -r "tests/${{ matrix.wp_plugin }}/mu-plugins/." "mu-plugins"
+                  docker compose up -d wordpress
+                  docker compose run --rm -u 33 wp-cli wp core install \
+                      --url=localhost:8889 \
+                      --title="Test Site" \
+                      --admin_user=admin \
+                      --admin_password=password \
+                      --admin_email=admin@test-site.localhost
+
+            - name: Configure WordPress
+              run: |
+                  [ -n "${{ inputs.wp_version }}" ] && docker compose run --rm -u 33 wp-cli wp core update --version=${{ inputs.wp_version }} --force
+                  [ -n "${{ inputs.wp_version }}" ] && docker compose run --rm -u 33 wp-cli wp core update-db
+                  docker compose run --rm -u 33 wp-cli wp rewrite structure '/%postname%/'
+                  docker compose run --rm -u 33 wp-cli wp plugin install ${{ matrix.wp_plugin }} --activate
+
+            - name: Setup Playwright environment
+              run: |
+                  docker compose run --rm playwright npm install
+
+            - name: Run E2E tests
+              run: docker compose run --rm -e PLUGIN=${{ matrix.wp_plugin }} playwright npm run test
+
+            - name: Retain failed test results
+              uses: actions/upload-artifact@v4
+              if: failure()
+              with:
+                  name: test-results-${{ matrix.wp_plugin }}
+                  path: artifacts/test-results/
+
+            - name: Shutdown environments
+              if: always()
+              run: docker compose down -v --remove-orphans

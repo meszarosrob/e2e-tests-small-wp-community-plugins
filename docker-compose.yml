@@ -1,0 +1,62 @@
+services:
+    wordpress:
+        image: wordpress:php8.3-apache
+        hostname: wordpress
+        ports:
+            - 8889:80
+        environment:
+            WORDPRESS_DB_HOST: db
+            WORDPRESS_DB_USER: admin
+            WORDPRESS_DB_PASSWORD: password
+            WORDPRESS_DB_NAME: wordpress
+            WORDPRESS_CONFIG_EXTRA: |
+                define('WP_HOME', 'http://' . $$_SERVER['HTTP_HOST']);
+                define('WP_SITEURL', 'http://' . $$_SERVER['HTTP_HOST']);
+        volumes:
+            - wordpress:/var/www/html
+            - ./mu-plugins:/var/www/html/wp-content/mu-plugins
+        depends_on:
+            db:
+                condition: service_healthy
+    db:
+        image: mariadb:lts
+        environment:
+            MYSQL_DATABASE: wordpress
+            MYSQL_USER: admin
+            MYSQL_PASSWORD: password
+            MYSQL_RANDOM_ROOT_PASSWORD: 1
+        volumes:
+            - db:/var/lib/mysql
+        healthcheck:
+            test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+            start_period: 10s
+            interval: 10s
+            timeout: 5s
+            retries: 3
+    playwright:
+        image: mcr.microsoft.com/playwright:v1.50.0-noble
+        environment:
+            WP_BASE_URL: http://wordpress
+        volumes:
+            - .:/app
+        working_dir: /app
+    wp-cli:
+        image: wordpress:cli-php8.3
+        environment:
+            WORDPRESS_DB_HOST: db
+            WORDPRESS_DB_USER: admin
+            WORDPRESS_DB_PASSWORD: password
+            WORDPRESS_DB_NAME: wordpress
+        volumes:
+            - wordpress:/var/www/html
+            - ./mu-plugins:/var/www/html/wp-content/mu-plugins
+    php-cli:
+        build:
+            context: .
+            dockerfile: .docker/php-cli-composer/Dockerfile
+        volumes:
+            - .:/app
+        working_dir: /app
+volumes:
+    wordpress:
+    db:
