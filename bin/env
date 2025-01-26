@@ -1,0 +1,48 @@
+#!/bin/bash
+
+COMMAND=$1;
+PLUGIN=$2;
+
+if [ -z "$COMMAND" ]; then
+    echo "No command provided. Please provide one of the following commands: setup, test, destroy."
+    exit 1
+fi
+
+if [ "$COMMAND" == "setup" ] || [ "$COMMAND" == "test" ]; then
+    if [ -z "$PLUGIN" ]; then
+        echo "No plugin provided. Please provide one."
+        exit 1
+    fi
+
+    if [ ! -d "tests/$PLUGIN" ]; then
+        echo "Invalid plugin provided."
+        exit 1
+    fi
+fi
+
+case $COMMAND in
+    setup)
+        [ -d "tests/$PLUGIN/mu-plugins" ] && cp -r "tests/$PLUGIN/mu-plugins/." "mu-plugins"
+        docker compose up -d wordpress
+        docker compose run --rm wp-cli wp core install \
+            --url="localhost:8889" \
+            --title="Test Site" \
+            --admin_user="admin" \
+            --admin_password="password" \
+            --admin_email="admin@test-site.localhost"
+        docker compose run --rm wp-cli wp rewrite structure "/%postname%/"
+        docker compose run --rm wp-cli wp plugin install "$PLUGIN" --activate
+        [ ! -d "node_modules" ] && docker compose run --rm playwright npm install
+        ;;
+    test)
+        docker compose run --rm -e PLUGIN="$PLUGIN" playwright npm run test
+        ;;
+    destroy)
+        docker compose down -v --remove-orphans
+        find "mu-plugins" -name "*.php" -type f -delete
+        ;;
+    *)
+        echo "Invalid command provided."
+        exit 1
+        ;;
+esac

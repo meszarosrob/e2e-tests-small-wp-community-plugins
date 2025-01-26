@@ -18,30 +18,14 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - name: Setup WordPress environment
+            - name: Setup WordPress and Playwright
               run: |
-                  [ -d "tests/${{ matrix.wp_plugin }}/mu-plugins" ] && cp -r "tests/${{ matrix.wp_plugin }}/mu-plugins/." "mu-plugins"
-                  docker compose up -d wordpress
-                  docker compose run --rm wp-cli wp core install \
-                      --url=localhost:8889 \
-                      --title="Test Site" \
-                      --admin_user=admin \
-                      --admin_password=password \
-                      --admin_email=admin@test-site.localhost
-
-            - name: Configure WordPress
-              run: |
-                  [ -n "${{ inputs.wp_version }}" ] && docker compose run --rm wp-cli wp core update --version=${{ inputs.wp_version }} --force
-                  [ -n "${{ inputs.wp_version }}" ] && docker compose run --rm wp-cli wp core update-db
-                  docker compose run --rm wp-cli wp rewrite structure '/%postname%/'
-                  docker compose run --rm wp-cli wp plugin install ${{ matrix.wp_plugin }} --activate
-
-            - name: Setup Playwright environment
-              run: |
-                  docker compose run --rm playwright npm install
+                  ./bin/env setup ${{ matrix.wp_plugin }}
+                  [ -n ${{ inputs.wp_version }} ] && docker compose run --rm wp-cli wp core update --version=${{ inputs.wp_version }} --force
+                  [ -n ${{ inputs.wp_version }} ] && docker compose run --rm wp-cli wp core update-db
 
             - name: Run E2E tests
-              run: docker compose run --rm -e PLUGIN=${{ matrix.wp_plugin }} playwright npm run test
+              run: ./bin/env test ${{ matrix.wp_plugin }}
 
             - name: Retain failed test results
               uses: actions/upload-artifact@v4
@@ -52,4 +36,4 @@ jobs:
 
             - name: Shutdown environments
               if: always()
-              run: docker compose down -v --remove-orphans
+              run: ./bin/env destroy
