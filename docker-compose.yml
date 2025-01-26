@@ -50,6 +50,7 @@ services:
         volumes:
             - wordpress:/var/www/html
             - ./mu-plugins:/var/www/html/wp-content/mu-plugins
+        user: 33:33
     php-cli:
         build:
             context: .

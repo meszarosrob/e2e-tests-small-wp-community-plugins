@@ -22,7 +22,7 @@ jobs:
               run: |
                   [ -d "tests/${{ matrix.wp_plugin }}/mu-plugins" ] && cp -r "tests/${{ matrix.wp_plugin }}/mu-plugins/." "mu-plugins"
                   docker compose up -d wordpress
-                  docker compose run --rm -u 33 wp-cli wp core install \
+                  docker compose run --rm wp-cli wp core install \
                       --url=localhost:8889 \
                       --title="Test Site" \
                       --admin_user=admin \
@@ -31,10 +31,10 @@ jobs:
 
             - name: Configure WordPress
               run: |
-                  [ -n "${{ inputs.wp_version }}" ] && docker compose run --rm -u 33 wp-cli wp core update --version=${{ inputs.wp_version }} --force
-                  [ -n "${{ inputs.wp_version }}" ] && docker compose run --rm -u 33 wp-cli wp core update-db
-                  docker compose run --rm -u 33 wp-cli wp rewrite structure '/%postname%/'
-                  docker compose run --rm -u 33 wp-cli wp plugin install ${{ matrix.wp_plugin }} --activate
+                  [ -n "${{ inputs.wp_version }}" ] && docker compose run --rm wp-cli wp core update --version=${{ inputs.wp_version }} --force
+                  [ -n "${{ inputs.wp_version }}" ] && docker compose run --rm wp-cli wp core update-db
+                  docker compose run --rm wp-cli wp rewrite structure '/%postname%/'
+                  docker compose run --rm wp-cli wp plugin install ${{ matrix.wp_plugin }} --activate
 
             - name: Setup Playwright environment
               run: |
