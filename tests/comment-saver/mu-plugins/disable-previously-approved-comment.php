@@ -13,6 +13,6 @@ declare(strict_types=1);
 namespace E2E\CommentSaver;
 
 add_filter(
-	'__return_false',
-	'option_comment_previously_approved'
+    'option_comment_previously_approved',
+	'__return_false'
 );
